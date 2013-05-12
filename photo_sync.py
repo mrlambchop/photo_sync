@@ -69,6 +69,9 @@ def get_options():
             usage()
         a += 1
 
+    if options.storage == None or options.camera == None:
+        usage()
+
     return options
 
 
