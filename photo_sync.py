@@ -16,7 +16,7 @@ import shutil
 import collections
 import hashlib
 
-def usage():
+def usage( failure ):
     print >>sys.stderr, "photo_sync.py"
     print >>sys.stderr, "Nick Lambourne 2013, done on a Chomebook running Ubuntu. After a glass of wine. Or 2."
     print >>sys.stderr
@@ -30,7 +30,9 @@ def usage():
     print >>sys.stderr, "    -cp, --checkphoto     Check the photo disk for conflicts"
     print >>sys.stderr, "                          This ensures that all photos are unique in name and are not duplicated in directories"
     print >>sys.stderr, "    -cmp,--checkmemphoto  Check that there are no conflicts on the memory card and the photo disk"
-    print >>sys.stderr, "                          This ensures that all photos are unique over all the cards"    
+    print >>sys.stderr, "                          This ensures that all photos are unique over all the cards"
+    print >>sys.stderr, ""
+    print >>sys.stderr, "Failed with error: ", failure
     sys.exit(1)
 
 
@@ -64,13 +66,13 @@ def get_options():
             elif sys.argv[a] in ("-cmp", "--checkmemphoto"):
                 options.check_for_memory_photo_conflicts = True            
             else:
-                usage()
+                usage("Unknown option:" + sys.argv[a])
         else:
-            usage()
+            usage("Invalid option formatting" + sys.argv[a])
         a += 1
 
     if options.storage == None or options.camera == None:
-        usage()
+        usage("Not specified storage or camera directories")
 
     return options
 
@@ -86,13 +88,10 @@ def get_photo_list_from_path(path):
             self.size = size
             
         def __str__(self):
-            return self.filename + "_" + str(self.size)
-        
-        def __gt__(self, photo2):
-            return cmp( str(self), str(photo2) )
-        
+            return self.filename + "_" + str(self.size)        
+
         def __eq__(self, photo2):
-            return cmp( str(self), str(photo2) )     
+            return str(self) == str(photo2)
         
         def __hash__(self):
             return hash(str(self))
@@ -177,9 +176,9 @@ if __name__ == '__main__':
     if options.quiet == False:
         print len(picture_storage_files), "images in picture storage"
         print len(memory_card_files), "images in camera card" 
-    
+
     #get the delta in directories
-    memory_card_files_that_need_updating = list(set(memory_card_files) - set(picture_storage_files)) 
+    memory_card_files_that_need_updating = list(set(memory_card_files) - set(picture_storage_files))
 
     print "Files missing from the storage directory:", len(memory_card_files_that_need_updating)
     
@@ -194,7 +193,11 @@ if __name__ == '__main__':
     #if the staging dir is specified, copy the files over, preserving the data
     if options.staging != None:
         for fcopy in memory_card_files_that_need_updating:
-            shutil.copy2(fcopy, options.staging )
+            src  = os.path.join( fcopy.path, fcopy.filename )
+            dest  = os.path.join( options.staging, fcopy.filename )
+            if options.quiet == False:
+                print "Copying", src, "to", dest
+            shutil.copy2(src, dest )
 
     #if we are checking for duplicates on the photo disk, do so now
     if options.check_for_photo_disk_conflicts == True:        
