@@ -26,23 +26,31 @@ def usage( failure ):
     print >>sys.stderr, "    -c, --camera          Location of the camera memory card directory"
     print >>sys.stderr, "    -g, --staging         Location of the staging directory (where the files get copied to)"
     print >>sys.stderr, "                          This should be inside the storage location ideally"
-    print >>sys.stderr, "    -q, --quiet           Quiet mode, no output"
+    print >>sys.stderr, "    -v, --verbose         Verbose mode"
+    print >>sys.stderr, "    -vv, --veryverbose    Very Verbose mode"
     print >>sys.stderr, "    -cp, --checkphoto     Check the photo disk for conflicts"
     print >>sys.stderr, "                          This ensures that all photos are unique in name and are not duplicated in directories"
     print >>sys.stderr, "    -cmp,--checkmemphoto  Check that there are no conflicts on the memory card and the photo disk"
     print >>sys.stderr, "                          This ensures that all photos are unique over all the cards"
     print >>sys.stderr, ""
-    print >>sys.stderr, "Failed with error: ", failure
+    print >>sys.stderr, "Exiting with status: ", failure
     sys.exit(1)
 
 
-def get_options():
+class Logging:
+    quiet = 0
+    verbose = 1
+    very_verbose = 2
+
+def get_options(): 
     class Options:
         def __init__(self):
+            
+            
             self.storage = None
             self.camera = None
             self.staging = None
-            self.quiet = False
+            self.logging = Logging.quiet
             self.check_for_photo_disk_conflicts = False
             self.check_for_memory_photo_conflicts = False
 
@@ -55,12 +63,14 @@ def get_options():
                 options.storage = sys.argv[a]
             elif sys.argv[a] in ("-c", "--camera"):
                 a += 1
-                options.camera = sys.argv[a]      
+                options.camera  = sys.argv[a]      
             elif sys.argv[a] in ("-g", "--staging"):
                 a += 1
                 options.staging = sys.argv[a]                                  
-            elif sys.argv[a] in ("-q", "--quiet"):
-                options.quiet = True
+            elif sys.argv[a] in ("-v", "--verbose"):
+                options.logging = Logging.verbose
+            elif sys.argv[a] in ("-vv", "--veryverbose"):
+                options.logging = Logging.very_verbose                
             elif sys.argv[a] in ("-cp", "--checkphoto"):
                 options.check_for_photo_disk_conflicts = True
             elif sys.argv[a] in ("-cmp", "--checkmemphoto"):
@@ -73,6 +83,13 @@ def get_options():
 
     if options.storage == None or options.camera == None:
         usage("Not specified storage or camera directories")
+        
+    if options.logging == Logging.very_verbose:
+        print "Storage =", options.storage
+        print "Camera =", options.camera
+        print "Staging =", options.staging
+        print "Check for photo disk conflicts:", options.check_for_photo_disk_conflicts
+        print "Check for memory photo conflicts:", options.check_for_memory_photo_conflicts
 
     return options
 
@@ -173,7 +190,7 @@ if __name__ == '__main__':
     picture_storage_files = get_photo_list_from_path(options.storage)
     memory_card_files = get_photo_list_from_path(options.camera)
     
-    if options.quiet == False:
+    if options.logging != Logging.quiet:
         print len(picture_storage_files), "images in picture storage"
         print len(memory_card_files), "images in camera card" 
 
@@ -186,16 +203,17 @@ if __name__ == '__main__':
     #useful for debug when the staging directory isn' specified.
     #yes, I don't like behavior like this (operation defined by obmitting parameters instead 
     #of explicit options, but hey ho...)
-    if options.quiet == False and len(memory_card_files_that_need_updating) != 0:
+    if options.logging == Logging.very_verbose and len(memory_card_files_that_need_updating) != 0:
         print "Files that need updating are:"
-        print sorted(memory_card_files_that_need_updating)
+        for f in sorted(memory_card_files_that_need_updating):
+            print str(f)
     
     #if the staging dir is specified, copy the files over, preserving the data
     if options.staging != None:
         for fcopy in memory_card_files_that_need_updating:
             src  = os.path.join( fcopy.path, fcopy.filename )
             dest  = os.path.join( options.staging, fcopy.filename )
-            if options.quiet == False:
+            if options.logging != Logging.quiet:
                 print "Copying", src, "to", dest
             shutil.copy2(src, dest )
 
